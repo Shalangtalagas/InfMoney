@@ -160,7 +160,7 @@ local scriptStarted = false
 if not scriptStarted then
 	scriptStarted = true
 	startTime = tick()
-	task.wait(30)
+	task.wait(40)
 
 	local dupingPhase = true
 
