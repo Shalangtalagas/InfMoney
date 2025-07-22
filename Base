@@ -1,6 +1,5 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local Backpack = player:WaitForChild("Backpack")
@@ -48,14 +47,16 @@ local mutationTags = {
 }
 
 local function cleanToolName(name)
-	name = name:lower()
-	name = name:gsub("%[.-%]", ""):gsub("%b()", "")
-	name = name:gsub("%d+%.?%d*kg", "")
+	name = name:lower():gsub("%[.-%]", ""):gsub("%b()", ""):gsub("%d+%.?%d*kg", "")
 	for _, mutation in ipairs(mutationTags) do
 		name = name:gsub(mutation, "")
 	end
-	name = name:gsub("[^%a%s']", ""):gsub("%s+", " ")
-	return name:match("^%s*(.-)%s*$")
+	return name:gsub("[^%a%s']", ""):gsub("%s+", " "):match("^%s*(.-)%s*$")
+end
+
+local function getCurrencyLabel()
+	local shecklesGui = gui:FindFirstChild("Sheckles_UI", true)
+	return shecklesGui and shecklesGui:FindFirstChild("TextLabel")
 end
 
 local function parseMoney(text)
@@ -70,19 +71,15 @@ local function CalculatePlantValue(plant)
 	local itemString = plant:FindFirstChild("Item_String")
 	local variant = plant:FindFirstChild("Variant")
 	local weight = plant:FindFirstChild("Weight")
-
 	if not (itemString and variant and weight) then return 0 end
-
 	local data = Item_Module.Return_Data(itemString.Value)
 	if not data or #data < 3 then return 0 end
-
 	local baseValue = data[3]
 	local weightRequirement = data[2]
 	local variantMultiplier = Item_Module.Return_Multiplier(variant.Value)
 	local mutationMultiplier = MutationHandler:CalcValueMulti(plant)
 	local plantValue = baseValue * mutationMultiplier * variantMultiplier
 	local weightRatio = math.clamp(weight.Value / weightRequirement, 0.95, 1e8)
-
 	return math.round(plantValue * (weightRatio * weightRatio))
 end
 
@@ -93,12 +90,10 @@ local function getInventoryValue()
 			value += CalculatePlantValue(tool)
 		end
 	end
-
 	local tool = Character:FindFirstChildOfClass("Tool")
 	if tool and tool:FindFirstChild("Item_String") then
 		value += CalculatePlantValue(tool)
 	end
-
 	return value
 end
 
@@ -112,7 +107,6 @@ local function duplicateRandomPlant()
 			end
 		end
 	end
-
 	if #candidates == 0 then return end
 	local selected = candidates[math.random(1, #candidates)]
 	local clone = selected:Clone()
@@ -129,40 +123,26 @@ local function destroyDupes()
 end
 
 local isAnimating = false
-
 local function animateAdd(amount)
 	if isAnimating then return end
 	isAnimating = true
-
-	local label = gui:FindFirstChild("Sheckles_UI", true)
-	label = label and label:FindFirstChild("TextLabel")
-
-	local leaderstats = player:FindFirstChild("leaderstats")
-	local sheckles = leaderstats and leaderstats:FindFirstChild("Sheckles")
-
-	if not label or not sheckles then
-		isAnimating = false
-		return
-	end
-
+	local label = getCurrencyLabel()
+	local shecklesStat = player:FindFirstChild("leaderstats") and player.leaderstats:FindFirstChild("Sheckles")
+	if not label or not shecklesStat then isAnimating = false return end
 	local guiAmount = parseMoney(label.Text)
-	local statAmount = sheckles.Value
+	local statAmount = shecklesStat.Value
 	local targetAmount = guiAmount + amount
 	local step = math.max(1, math.floor(amount / 50))
-
 	while guiAmount < targetAmount do
 		guiAmount = math.min(guiAmount + step, targetAmount)
 		statAmount = math.min(statAmount + step, targetAmount)
-
 		label.Text = formatMoney(guiAmount) .. "¢"
-		sheckles.Value = statAmount
+		shecklesStat.Value = statAmount
 		task.wait(0.05)
 	end
-
 	isAnimating = false
 end
 
--- === Public Start Function ===
 _G.StartDupeScript = function()
 	local startTime = tick()
 	local totalMoneyEarned = 0
