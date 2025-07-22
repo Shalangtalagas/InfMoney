@@ -1,187 +1,76 @@
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
-local player = Players.LocalPlayer
-local Backpack = player:WaitForChild("Backpack")
-local Character = player.Character or player.CharacterAdded:Wait()
-local gui = player:WaitForChild("PlayerGui")
-
-local Item_Module = require(ReplicatedStorage.Item_Module)
-local MutationHandler = require(ReplicatedStorage.Modules.MutationHandler)
-
-local validCrops = {
-	["aloe vera"] = true, ["amber spine"] = true, ["apple"] = true, ["avocado"] = true,
-	["bamboo"] = true, ["banana"] = true, ["beanstalk"] = true, ["bee balm"] = true,
-	["bell pepper"] = true, ["bendboo"] = true, ["blood banana"] = true, ["blueberry"] = true,
-	["bone blossom"] = true, ["boneboo"] = true, ["burning bud"] = true, ["cacao"] = true,
-	["cactus"] = true, ["candy blossom"] = true, ["candy sunflower"] = true, ["cantaloupe"] = true,
-	["carrot"] = true, ["cauliflower"] = true, ["celestiberry"] = true, ["cherry blossom"] = true,
-	["chocolate carrot"] = true, ["coconut"] = true, ["cocovine"] = true, ["corn"] = true,
-	["cranberry"] = true, ["crocus"] = true, ["cursed fruit"] = true, ["daffodil"] = true,
-	["dandelion"] = true, ["delphinium"] = true, ["dragon fruit"] = true, ["dragon pepper"] = true,
-	["durian"] = true, ["easter egg"] = true, ["egg plant"] = true, ["elephant ears"] = true,
-	["ember lily"] = true, ["feijoa"] = true, ["firefly fern"] = true, ["fossilight fruit"] = true,
-	["foxglove"] = true, ["giant pinecone"] = true, ["glowshroom"] = true, ["grand volcania"] = true,
-	["grape"] = true, ["green apple"] = true, ["guanabana"] = true, ["hive fruit"] = true,
-	["honeysuckle"] = true, ["horned dinoshroom"] = true, ["horsetail"] = true, ["kiwi"] = true,
-	["lavender"] = true, ["lemon"] = true, ["lilac"] = true, ["lily of the valley"] = true,
-	["lingonberry"] = true, ["loquat"] = true, ["lotus"] = true, ["lumira"] = true,
-	["mango"] = true, ["manuka flower"] = true, ["mint"] = true, ["moon blossom"] = true,
-	["moon mango"] = true, ["moon melon"] = true, ["moonflower"] = true, ["moonglow"] = true,
-	["mushroom"] = true, ["nectar thorn"] = true, ["nectarine"] = true, ["nectarshade"] = true,
-	["nightshade"] = true, ["orange tulip"] = true, ["papaya"] = true, ["paradise petal"] = true,
-	["parasol flower"] = true, ["passionfruit"] = true, ["peace lily"] = true, ["peach"] = true,
-	["pear"] = true, ["pepper"] = true, ["pineapple"] = true, ["pink lily"] = true,
-	["pitcher plant"] = true, ["prickly pear"] = true, ["pumpkin"] = true, ["purple dahlia"] = true,
-	["rafflesia"] = true, ["raspberry"] = true, ["red lollipop"] = true, ["rose"] = true,
-	["rosy delight"] = true, ["soul fruit"] = true, ["starfruit"] = true, ["stonebite"] = true,
-	["strawberry"] = true, ["succulent"] = true, ["sugar apple"] = true, ["suncoil"] = true,
-	["sunflower"] = true, ["tomato"] = true, ["traveler's fruit"] = true, ["violet corn"] = true,
-	["watermelon"] = true, ["wild carrot"] = true
-}
-
-local mutationTags = {
-	"gold", "rainbow", "wet", "windstruck", "moonlit", "chilled", "choc", "pollinated", "sandy",
-	"clay", "verdant", "bloodlit", "twisted", "drenched", "honeyglazed", "cloudtouched",
-	"frozen", "tempestuous", "aurora", "shocked", "celestial", "dawnbound"
-}
-
-local function cleanToolName(name)
-	name = name:lower():gsub("%[.-%]", ""):gsub("%b()", ""):gsub("%d+%.?%d*kg", "")
-	for _, mutation in ipairs(mutationTags) do
-		name = name:gsub(mutation, "")
-	end
-	return name:gsub("[^%a%s']", ""):gsub("%s+", " "):match("^%s*(.-)%s*$")
-end
-
-local function getCurrencyLabel()
-	local shecklesGui = gui:FindFirstChild("Sheckles_UI", true)
-	return shecklesGui and shecklesGui:FindFirstChild("TextLabel")
-end
-
-local function parseMoney(text)
-	return tonumber((text:gsub("[^%d]", ""))) or 0
-end
-
-local function formatMoney(n)
-	return tostring(n):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
-end
-
-local function CalculatePlantValue(plant)
-	local itemString = plant:FindFirstChild("Item_String")
-	local variant = plant:FindFirstChild("Variant")
-	local weight = plant:FindFirstChild("Weight")
-	if not (itemString and variant and weight) then return 0 end
-	local data = Item_Module.Return_Data(itemString.Value)
-	if not data or #data < 3 then return 0 end
-	local baseValue = data[3]
-	local weightRequirement = data[2]
-	local variantMultiplier = Item_Module.Return_Multiplier(variant.Value)
-	local mutationMultiplier = MutationHandler:CalcValueMulti(plant)
-	local plantValue = baseValue * mutationMultiplier * variantMultiplier
-	local weightRatio = math.clamp(weight.Value / weightRequirement, 0.95, 1e8)
-	return math.round(plantValue * (weightRatio * weightRatio))
-end
-
-local function getInventoryValue()
-	local value = 0
-	for _, tool in ipairs(Backpack:GetChildren()) do
-		if tool:IsA("Tool") and tool:FindFirstChild("Item_String") then
-			value += CalculatePlantValue(tool)
-		end
-	end
-	local tool = Character:FindFirstChildOfClass("Tool")
-	if tool and tool:FindFirstChild("Item_String") then
-		value += CalculatePlantValue(tool)
-	end
-	return value
-end
-
-local function duplicateRandomPlant()
-	local candidates = {}
-	for _, item in ipairs(Backpack:GetChildren()) do
-		if item:IsA("Tool") and not item:GetAttribute("IsDupe") then
-			local cleaned = cleanToolName(item.Name)
-			if validCrops[cleaned] then
-				table.insert(candidates, item)
-			end
-		end
-	end
-	if #candidates == 0 then return end
-	local selected = candidates[math.random(1, #candidates)]
-	local clone = selected:Clone()
-	clone:SetAttribute("IsDupe", true)
-	clone.Parent = Backpack
-end
-
-local function destroyDupes()
-	for _, item in ipairs(Backpack:GetChildren()) do
-		if item:IsA("Tool") and item:GetAttribute("IsDupe") then
-			item:Destroy()
-		end
-	end
-end
-
-local isAnimating = false
-local function animateAdd(amount)
-	if isAnimating then return end
-	isAnimating = true
-	local label = getCurrencyLabel()
-	local shecklesStat = player:FindFirstChild("leaderstats") and player.leaderstats:FindFirstChild("Sheckles")
-	if not label or not shecklesStat then isAnimating = false return end
-	local guiAmount = parseMoney(label.Text)
-	local statAmount = shecklesStat.Value
-	local targetAmount = guiAmount + amount
-	local step = math.max(1, math.floor(amount / 50))
-	while guiAmount < targetAmount do
-		guiAmount = math.min(guiAmount + step, targetAmount)
-		statAmount = math.min(statAmount + step, targetAmount)
-		label.Text = formatMoney(guiAmount) .. "¢"
-		shecklesStat.Value = statAmount
-		task.wait(0.05)
-	end
-	isAnimating = false
-end
-
+-- Grow a Garden Duplication + Money Logic (Wrapped in Function)
 _G.StartDupeScript = function()
-	local startTime = tick()
-	local totalMoneyEarned = 0
+	local Players = game:GetService("Players")
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	local RunService = game:GetService("RunService")
 
-	task.wait(30)
+	local player = Players.LocalPlayer
+	local Backpack = player:WaitForChild("Backpack")
+	local Character = player.Character or player.CharacterAdded:Wait()
+	local gui = player:WaitForChild("PlayerGui")
+	local Item_Module = require(ReplicatedStorage:WaitForChild("Item_Module"))
 
-	local dupingStart = tick()
-	while tick() - dupingStart < 10 do
-		for _ = 1, 5 do
-			duplicateRandomPlant()
-		end
-		task.wait(0.5)
+	local dupes = {}
+	local totalMoney = 0
+	local startTime = os.clock()
+
+	local function getMoneyPerHour()
+		local elapsed = os.clock() - startTime
+		if elapsed == 0 then return 0 end
+		return math.floor((totalMoney / elapsed) * 3600)
 	end
 
-	task.spawn(function()
-		while true do
-			for _ = 1, 5 do
-				duplicateRandomPlant()
+	local function getCrops()
+		local all = {}
+		for _, item in pairs(Backpack:GetChildren()) do
+			if item:IsA("Tool") and item:FindFirstChild("Plant") and not item:GetAttribute("IsDupe") then
+				table.insert(all, item)
 			end
-			task.wait(0.5)
 		end
-	end)
+		for _, item in pairs(Character:GetChildren()) do
+			if item:IsA("Tool") and item:FindFirstChild("Plant") and not item:GetAttribute("IsDupe") then
+				table.insert(all, item)
+			end
+		end
+		return all
+	end
 
-	task.spawn(function()
-		while true do
-			local invValue = getInventoryValue()
-			animateAdd(invValue)
-			totalMoneyEarned += invValue
-			destroyDupes()
-			task.wait(5)
-		end
-	end)
+	local function duplicate(item)
+		local clone = item:Clone()
+		clone.Parent = player.Backpack
+		clone:SetAttribute("IsDupe", true)
+		table.insert(dupes, clone)
+	end
 
-	task.spawn(function()
-		while true do
-			local elapsed = math.max(1, tick() - startTime)
-			local hourly = (totalMoneyEarned / elapsed) * 3600
-			warn("Money/Hour: " .. formatMoney(math.floor(hourly)))
-			task.wait(1)
+	local function formatMoney(v)
+		return string.format("%.1fK", v / 1000)
+	end
+
+	while true do
+		task.wait(math.random(3, 5))
+
+		-- Duplicate real crops
+		for _, crop in pairs(getCrops()) do
+			if crop and (crop:IsDescendantOf(Backpack) or crop:IsDescendantOf(Character)) then
+				duplicate(crop)
+			end
 		end
-	end)
+
+		-- Sell duped items
+		for i = #dupes, 1, -1 do
+			local tool = dupes[i]
+			if tool and (tool:IsDescendantOf(Backpack) or tool:IsDescendantOf(Character)) then
+				local plant = tool:FindFirstChild("Plant")
+				if plant then
+					local value = Item_Module:GetValue(plant)
+					totalMoney += value
+					tool:Destroy()
+				end
+				table.remove(dupes, i)
+			end
+		end
+
+		-- Optional: print MPH to console
+		warn("MPH: " .. formatMoney(getMoneyPerHour()))
+	end
 end
