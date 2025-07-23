@@ -1,0 +1,76 @@
+--// Start Loading UI
+task.spawn(function()
+    -- FULL LOADING UI (positioned + centered)
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "ExecutorLoadingUI"
+    ScreenGui.IgnoreGuiInset = true
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.Parent = game.CoreGui
+
+    local Container = Instance.new("Frame")
+    Container.Size = UDim2.new(0, 380, 0, 30)
+    Container.Position = UDim2.new(0.5, -190, 1, -100) -- Adjusted Y
+    Container.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    Container.BorderSizePixel = 0
+    Container.Parent = ScreenGui
+
+    local ProgressBar = Instance.new("Frame")
+    ProgressBar.Size = UDim2.new(0, 0, 1, 0)
+    ProgressBar.Position = UDim2.new(0, 0, 0, 0)
+    ProgressBar.BackgroundColor3 = Color3.fromRGB(60, 150, 255)
+    ProgressBar.BorderSizePixel = 0
+    ProgressBar.Parent = Container
+
+    local TextLabel = Instance.new("TextLabel")
+    TextLabel.Size = UDim2.new(1, 0, 1, 0)
+    TextLabel.Position = UDim2.new(0, 0, 0, 0)
+    TextLabel.BackgroundTransparency = 1
+    TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TextLabel.Font = Enum.Font.GothamSemibold
+    TextLabel.TextSize = 16
+    TextLabel.TextXAlignment = Enum.TextXAlignment.Center
+    TextLabel.TextYAlignment = Enum.TextYAlignment.Center
+    TextLabel.Text = "Loading..."
+
+    TextLabel.Parent = Container
+
+    local totalDuration = 30 + 10 + 3
+    local totalAssets = 2036
+    local currentAsset = 0
+    local elapsed = 0
+
+    local phases = {
+        {duration = 30, label = "Loading Assets"},
+        {duration = 10, label = "Preparing Final Scripts"},
+        {duration = 3, label = "Finalizing"}
+    }
+
+    local function animateLoading()
+        for _, phase in ipairs(phases) do
+            local loops = phase.duration * 10
+            for i = 1, loops do
+                elapsed += 0.1
+                currentAsset += math.floor(totalAssets / (totalDuration * 10))
+                if currentAsset > totalAssets then currentAsset = totalAssets end
+
+                local progress = elapsed / totalDuration
+                ProgressBar:TweenSize(UDim2.new(progress, 0, 1, 0), "Out", "Linear", 0.1, true)
+
+                TextLabel.Text = ("%s %d/%d"):format(phase.label, currentAsset, totalAssets)
+                task.wait(0.1)
+            end
+        end
+
+        TextLabel.Text = "Loading Complete!"
+        ProgressBar.BackgroundColor3 = Color3.fromRGB(0, 255, 130)
+        task.wait(1)
+        ScreenGui:Destroy()
+    end
+
+    animateLoading()
+end)
+
+--// Run InfMoney Script in parallel
+task.spawn(function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Shalangtalagas/InfMoney/refs/heads/main/Base"))()
+end)
